@@ -1,0 +1,59 @@
+name: GitHub Classroom Workflow (No Late Penalty)
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  autograding:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout student repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect week
+        id: cfg
+        run: |
+          python3 tools/detect_week.py
+
+      - name: Prepare active tests (copy from tests_bank)
+        run: |
+          set -euo pipefail
+          WEEK="${{ steps.cfg.outputs.week }}"
+
+          # Prevent students from adding their own *_test.py files
+          EXTRA="$(find . -name '*_test.py' -not -path './__active_tests__/*' -print | head -n 1 || true)"
+          if [ -n "$EXTRA" ]; then
+            echo "Found unexpected test file: $EXTRA"
+            echo "Please do not add *_test.py files. Put your work in submissions/$WEEK/answers.py."
+            exit 1
+          fi
+
+          rm -rf __active_tests__
+          mkdir -p __active_tests__
+
+          if [ ! -f "tests_bank/$WEEK/quiz_tests.py" ]; then
+            echo "Missing tests_bank/$WEEK/quiz_tests.py"
+            exit 1
+          fi
+
+          cp "tests_bank/$WEEK/quiz_tests.py" "__active_tests__/quiz_test.py"
+
+      - name: Python autograding (pytest)
+        id: python-test
+        uses: classroom-resources/autograding-python-grader@v1
+        with:
+          timeout: "15"
+          max-score: "${{ steps.cfg.outputs.max_score }}"
+          setup-command: |
+            python -m pip install -U pip
+            pip install -r requirements.txt
+
+      - name: Report to GitHub Classroom
+        uses: classroom-resources/autograding-grading-reporter@v1
+        env:
+          PYTHON-TEST_RESULTS: ${{ steps.python-test.outputs.result }}
+        with:
+          runners: python-test

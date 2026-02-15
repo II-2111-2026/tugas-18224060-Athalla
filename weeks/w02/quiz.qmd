@@ -1,0 +1,10 @@
+---
+title: "Quiz w02 — Placeholder"
+format: html
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+Week w02 is not released yet.
